@@ -14,10 +14,14 @@ use Lab404\Impersonate\Exceptions\MissingUserProvider;
 
 class ImpersonateManager
 {
-    const REMEMBER_PREFIX = 'remember_web';
 
     /** @var Application $app */
     private $app;
+
+    protected function getRememberPrefix($guard)
+    {
+        return 'remember_' . $guard;
+    }
 
     public function __construct(Application $app)
     {
@@ -227,15 +231,18 @@ class ImpersonateManager
 
     protected function saveAuthCookieInSession(): void
     {
-        $cookie = $this->findByKeyInArray($this->app['request']->cookies->all(), static::REMEMBER_PREFIX);
+        $guard = $this->getCurrentAuthGuardName();
+        $rememberPrefix = $this->getRememberPrefix($guard);
+    
+        $cookie = $this->findByKeyInArray($this->app['request']->cookies->all(), $rememberPrefix);
         $key = $cookie->keys()->first();
         $val = $cookie->values()->first();
-
+    
         if (!$key || !$val) {
             return;
         }
-
-        session()->put(static::REMEMBER_PREFIX, [
+    
+        session()->put($rememberPrefix, [
             $key,
             $val,
         ]);
@@ -243,10 +250,13 @@ class ImpersonateManager
 
     protected function extractAuthCookieFromSession(): void
     {
-        if (!$session = $this->findByKeyInArray(session()->all(), static::REMEMBER_PREFIX)->first()) {
+        $guard = $this->getImpersonatorGuardName();
+        $rememberPrefix = $this->getRememberPrefix($guard);
+    
+        if (!$session = $this->findByKeyInArray(session()->all(), $rememberPrefix)->first()) {
             return;
         }
-
+    
         $this->app['cookie']->queue($session[0], $session[1]);
         session()->forget($session);
     }
